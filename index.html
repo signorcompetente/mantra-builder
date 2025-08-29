@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fantacalcio Moduli Avanzato</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  .ruolo-button { cursor:pointer; user-select:none; padding:0.25rem 0.5rem; border-radius:0.25rem; margin:0.1rem; display:inline-flex; align-items:center;}
+  .linea { min-height:2rem; padding:0.5rem; border:1px dashed #aaa; border-radius:0.25rem; margin-bottom:0.5rem;}
+  .remove-btn { margin-left:0.25rem; color:#fff; font-weight:bold; cursor:pointer;}
+  .slot-coperto { font-weight:bold; color:#1e3a8a; }
+  .ruolo-cardine { font-weight: 900; color: #1f2937; }
+  @keyframes lampeggio {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .ruolo-mancante {
+    text-decoration: underline;
+    text-decoration-color: red;
+    font-weight: bold;
+    color: #b91c1c;
+    animation: lampeggio 1s infinite;
+  }
+  .ruolo-mancante-static {
+    text-decoration: underline;
+    text-decoration-color: red;
+    font-weight: bold;
+    color: #b91c1c;
+  }
+  .progress-container { 
+    background-color: #e5e7eb; 
+    border-radius: 0.25rem; 
+    overflow: visible;  
+    height: 0.75rem; 
+    margin-bottom: 0.25rem; 
+    position: relative; 
+  }
+  .progress-bar { 
+    height: 100%; 
+    text-align: center; 
+    color: white; 
+    font-size: 0.6rem; 
+    line-height: 0.75rem; 
+    transition: width 0.5s ease, background-color 0.5s ease; 
+    border-radius: 0.25rem; 
+    cursor: pointer; 
+  }
+  .tooltip {
+    position: absolute;
+    background-color: #111;
+    color: #fff;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.65rem;
+    top: -2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    z-index: 20;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body class="bg-gray-100">
+<div id="root"></div>
+
+<script type="text/babel">
+
+function SquadraBuilder() {
+  const moduli = {
+    "343": [["DC"], ["DC"], ["DC","B"], ["E"], ["M","C"], ["C"], ["E"], ["W","A"], ["W","A"], ["A","PC"]],
+    "3412": [["DC"], ["DC"], ["DC","B"], ["M","C"], ["C"], ["E"], ["E"], ["T"], ["A","PC"], ["A","PC"]],
+    "3421": [["DC"], ["DC"], ["DC","B"], ["M"], ["M","C"], ["E"], ["E","W"], ["T"], ["T","A"], ["A","PC"]],
+    "352": [["DC"], ["DC"], ["DC","B"], ["M"], ["M","C"], ["C"], ["E"], ["E","W"], ["A","PC"], ["A","PC"]],
+    "3511": [["DC"], ["DC"], ["DC","B"], ["M"], ["M"], ["C"], ["E","W"], ["T","A"], ["E","W"], ["A","PC"]],
+    "433": [["DD"], ["DC"], ["DC"], ["DS"], ["M","C"], ["M"], ["C"], ["W","A"], ["A","PC"], ["W","A"]],
+    "4312": [["DD"], ["DC"], ["DC"], ["DS"], ["M","C"], ["M"], ["C"], ["T"], ["T","A","PC"], ["A","PC"]],
+    "442": [["DD"], ["DC"], ["DC"], ["DS"], ["M","C"], ["C"], ["E"], ["E","W"], ["A","PC"], ["A","PC"]],
+    "4141": [["DD"], ["DC"], ["DC"], ["DS"], ["M"], ["C","T"], ["E","W"], ["T"], ["W"], ["A","PC"]],
+    "4411": [["DD"], ["DC"], ["DC"], ["DS"], ["M"], ["C"], ["E","W"], ["E","W"], ["T","A"], ["A","PC"]],
+    "4231": [["DD"], ["DC"], ["DC"], ["DS"], ["M"], ["M","C"], ["W","T"], ["T"], ["W","A"], ["A","PC"]]
+  };
+
+  const ruoliCardine = ["T","W","E","C","M","DC","DS","DD"];
+  const vincolanti = { "DS":2, "DD":2, "T":2, "M":2, "W":2, "A":2, "E":1.5, "C":1.5, "PC":1.2 };
+
+  const prioritaRuoli = {
+    "W-A": ["W","A"], "T-A": ["T","A"], "C-T": ["C","T"], "M-C": ["M","C"], "DD-E": ["DD","E"],
+    "W-T": ["W","T"], "DS-E": ["DS","E"], "W-T-A": ["W","T","A"], "C-W-T": ["C","W","T"], "B-DS-E": ["B","DS","E"],
+    "E-W": ["E","W"], "DD-DC": ["DC","DD"], "DD-DS-E": ["DS","DD","E"], "DS-DC": ["DC","DS"], "E-M": ["E","M"],
+    "C-W": ["C","W"], "B-DD-E": ["B","DD","E"]
+  };
+
+  const [titolari, setTitolari] = React.useState([]);
+  const [panchina, setPanchina] = React.useState([]);
+  const [inputRuolo, setInputRuolo] = React.useState("");
+  const [dragRuolo, setDragRuolo] = React.useState(null);
+  const [hoverModulo, setHoverModulo] = React.useState(null);
+
+  const normalizzaRuolo = (ruolo) => {
+    ruolo = ruolo.toUpperCase();
+    if (prioritaRuoli[ruolo]) return prioritaRuoli[ruolo];
+    return [ruolo];
+  };
+
+  const aggiungiRuolo = (ruolo, lista) => {
+    ruolo = ruolo.toUpperCase();
+    if(!ruolo) return;
+    if(lista==="titolari") setTitolari([...titolari, ruolo]);
+    else setPanchina([...panchina, ruolo]);
+  };
+
+  const rimuoviRuolo = (ruolo, lista) => {
+    if(lista==="titolari") setTitolari(titolari.filter((r,i)=>i!==titolari.indexOf(ruolo)));
+    else setPanchina(panchina.filter((r,i)=>i!==panchina.indexOf(ruolo)));
+  };
+
+  const spostaRuolo = (ruolo, da, a) => {
+    rimuoviRuolo(ruolo, da);
+    aggiungiRuolo(ruolo, a);
+  };
+
+  const handleDragStart = (r)=>setDragRuolo(r);
+  const handleDrop = (linea)=>{
+    if(dragRuolo){
+      if(linea==="titolari" && !titolari.includes(dragRuolo)) spostaRuolo(dragRuolo,"panchina","titolari");
+      else if(linea==="panchina" && !panchina.includes(dragRuolo)) spostaRuolo(dragRuolo,"titolari","panchina");
+      setDragRuolo(null);
+    }
+  };
+
+  const calcolaSlotCoperti = (slots, ruoliDisponibiliRaw) => {
+    let slotsCoperti = Array(slots.length).fill(false);
+    let giocatori = ruoliDisponibiliRaw.map(r => normalizzaRuolo(r));
+
+    slots.forEach((slot, i) => {
+      for (let g = 0; g < giocatori.length; g++) {
+        let possibili = giocatori[g];
+        if (possibili.some(r => slot.includes(r))) {
+          slotsCoperti[i] = true;
+          giocatori.splice(g,1);
+          break;
+        }
+      }
+    });
+    return slotsCoperti;
+  };
+
+  const calcolaScoreModulo = (slots, titolari) => {
+    let score = 0;
+    slots.forEach(slot=>{
+      const checkRuoli = titolari.map(r=>normalizzaRuolo(r)).flat();
+      if(slot.length === 1 && ruoliCardine.includes(slot[0])) {
+        if(checkRuoli.includes(slot[0])) score += 2;
+      } else if(slot.length > 1){
+        const presenti = slot.filter(r => checkRuoli.includes(r) && ruoliCardine.includes(r));
+        score += presenti.length;
+      }
+    });
+    return score;
+  };
+
+  // --- Funzione aggiornata: un giocatore copre un solo slot ---
+const evidenziaRuoli = (slots, titolariRaw) => {
+  // Copia dei giocatori disponibili, ciascuno con i ruoli normalizzati
+  let giocatoriDisponibili = titolariRaw.map(r => normalizzaRuolo(r));
+
+  // Array finale degli slot evidenziati
+  return slots.map(slot => {
+    // Array booleano per ciascun ruolo nello slot
+    let evidenziati = slot.map(() => false);
+
+    // Iteriamo i ruoli dello slot seguendo l'ordine
+    for (let s = 0; s < slot.length; s++) {
+      const ruoloSlot = slot[s]; // primo ruolo = strategico/defensivo
+
+      // Cerchiamo un giocatore disponibile che abbia questo ruolo
+      for (let g = 0; g < giocatoriDisponibili.length; g++) {
+        const titolare = giocatoriDisponibili[g];
+        if (titolare.includes(ruoloSlot)) {
+          evidenziati[s] = true;
+          // Rimuoviamo il giocatore: può coprire solo uno slot
+          giocatoriDisponibili.splice(g, 1);
+          break; // Passiamo al prossimo ruolo nello slot
+        }
+      }
+
+      // Se abbiamo evidenziato il ruolo strategico, non cerchiamo altri ruoli nello slot
+      if (evidenziati[s]) break;
+    }
+
+    return evidenziati;
+  });
+};
+
+  const risultati = Object.entries(moduli).map(([nome, slots])=>{
+    const slotsCopertiTitolari = calcolaSlotCoperti(slots, titolari);
+    const mancantiTitolari = slots.map((s,i)=>!slotsCopertiTitolari[i] ? (s.length>1 ? `{${s.join(" / ")}}` : s[0]) : null).filter(Boolean);
+    const evidenziati = evidenziaRuoli(slots, titolari);
+    const percentMatch = Math.round((slotsCopertiTitolari.filter(c=>c).length/slots.length)*100);
+    const score = calcolaScoreModulo(slots, titolari);
+    return {nome, slots, slotsCopertiTitolari, mancantiTitolari, evidenziati, percentMatch, score};
+  }).sort((a,b)=>b.percentMatch - a.percentMatch);
+
+  const coloriModulo = (percent) => {
+    if(percent===100) return "#16a34a";
+    if(percent>=70) return "#4ade80";
+    if(percent>=50) return "#a3e635";
+    if(percent>=30) return "#facc15";
+    return "#fde68a";
+  };
+
+  const coloreBarra = (percent) => {
+    if(percent===100) return "#065f46";
+    if(percent>=70) return "#15803d";
+    if(percent>=50) return "#4d7c0f";
+    if(percent>=30) return "#ca8a04";
+    return "#b45309";
+  };
+
+  const bordoModulo = (score) => {
+    const spessore = Math.min(5, score) + "px";
+    return score > 0 ? `${spessore} solid black` : "1px dashed #aaa";
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      <h1 className="text-xl font-bold">Costruttore Moduli Fantacalcio Avanzato</h1>
+
+      <div className="flex gap-2 mt-2">
+        <input type="text" className="border p-2 rounded flex-1"
+          placeholder="Ruolo (DC, M, A... o multiruolo tipo E/W)"
+          value={inputRuolo}
+          onChange={(e)=>setInputRuolo(e.target.value)}
+          onKeyDown={(e)=>{if(e.key==="Enter"){aggiungiRuolo(inputRuolo,"titolari");setInputRuolo("");}}}
+        />
+        <button className="px-3 py-2 bg-blue-500 text-white rounded" onClick={()=>{aggiungiRuolo(inputRuolo,"titolari");setInputRuolo("");}}>Aggiungi titolare</button>
+        <button className="px-3 py-2 bg-green-500 text-white rounded" onClick={()=>{aggiungiRuolo(inputRuolo,"panchina");setInputRuolo("");}}>Aggiungi panchina</button>
+      </div>
+
+      <div>
+        <p className="font-semibold mt-2">Titolari ({titolari.length})</p>
+        <div className="linea flex flex-wrap" onDragOver={(e)=>e.preventDefault()} onDrop={()=>handleDrop("titolari")}>
+          {titolari.map((r,i)=>(
+            <span key={i} draggable className={`ruolo-button ${vincolanti[r]?"bg-blue-400 text-white":"bg-gray-200"}`}
+              onDragStart={()=>handleDragStart(r)}>
+              {r} <span className="remove-btn" onClick={()=>rimuoviRuolo(r,"titolari")}>×</span>
+            </span>
+          ))}
+        </div>
+
+        <p className="font-semibold mt-2">Panchina ({panchina.length})</p>
+        <div className="linea flex flex-wrap" onDragOver={(e)=>e.preventDefault()} onDrop={()=>handleDrop("panchina")}>
+          {panchina.map((r,i)=>(
+            <span key={i} draggable className={`ruolo-button ${vincolanti[r]?"bg-cyan-400 text-white":"bg-gray-200"}`}
+              onDragStart={()=>handleDragStart(r)}>
+              {r} <span className="remove-btn" onClick={()=>rimuoviRuolo(r,"panchina")}>×</span>
+            </span>
+          ))}
+        </div>
+
+        <p className="font-semibold mt-2">
+          Totale giocatori: {titolari.length + panchina.length}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        {risultati.map(r=>(
+          <div key={r.nome} className="p-3 rounded shadow" style={{backgroundColor: coloriModulo(r.percentMatch), border: bordoModulo(r.score)}}>
+            
+            <div className="progress-container" 
+                 onMouseEnter={()=>setHoverModulo(r.nome)} 
+                 onMouseLeave={()=>setHoverModulo(null)}>
+              <div className="progress-bar" style={{ width: `${r.percentMatch}%`, backgroundColor: coloreBarra(r.percentMatch) }}>
+                {r.percentMatch}%
+              </div>
+              {hoverModulo === r.nome && (
+                <div className="tooltip">
+                  {r.mancantiTitolari.length>0 ? "Mancano: " + r.mancantiTitolari.join(", ") : "Completo ✅"}
+                </div>
+              )}
+            </div>
+
+            <h2 className="text-lg font-bold">{r.nome}</h2>
+            <p className="mb-1">
+              {r.slots.map((slot, i) => {
+                return slot.map((ruolo, idx) => {
+                  const evidenziato = r.evidenziati[i][idx];
+                  const manca = !r.slotsCopertiTitolari[i] && !titolari.includes(ruolo);
+                  const classeMancante = r.percentMatch >= 65 && r.percentMatch < 100 ? "ruolo-mancante" : "ruolo-mancante-static";
+                  return (
+                    <span key={i+"-"+idx} className={evidenziato ? "ruolo-cardine" : (manca ? classeMancante : "")}>
+                      {ruolo}{idx < slot.length - 1 ? "/" : ""}
+                    </span>
+                  );
+                });
+              }).reduce((prev, curr) => [prev, ", ", curr])}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<SquadraBuilder />);
+</script>
+</body>
+</html>
