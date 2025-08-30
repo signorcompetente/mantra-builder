@@ -127,7 +127,6 @@ function SquadraBuilder() {
   const calcolaSlotCoperti = (slots, ruoliDisponibiliRaw) => {
     let slotsCoperti = Array(slots.length).fill(false);
     let giocatori = ruoliDisponibiliRaw.map(r => normalizzaRuolo(r));
-
     slots.forEach((slot, i) => {
       for (let g = 0; g < giocatori.length; g++) {
         let possibili = giocatori[g];
@@ -212,17 +211,25 @@ function SquadraBuilder() {
     <div className="p-4 space-y-4">
       <h1 className="text-xl font-bold">Costruttore Moduli Fantacalcio Avanzato</h1>
 
-      <div className="flex gap-2 mt-2">
-        <input type="text" className="border p-2 rounded flex-1"
+      {/* --- INPUT + BOTTONI --- */}
+      <div className="flex flex-col sm:flex-row gap-2 mt-2">
+        <input type="text" className="border p-2 rounded flex-1 mb-2 sm:mb-0"
           placeholder="Ruolo (DC, M, A... o multiruolo tipo E/W)"
           value={inputRuolo}
           onChange={(e)=>setInputRuolo(e.target.value)}
           onKeyDown={(e)=>{if(e.key==="Enter"){aggiungiRuolo(inputRuolo,"titolari");setInputRuolo("");}}}
         />
-        <button className="px-3 py-2 bg-blue-500 text-white rounded" onClick={()=>{aggiungiRuolo(inputRuolo,"titolari");setInputRuolo("");}}>Aggiungi titolare</button>
-        <button className="px-3 py-2 bg-green-500 text-white rounded" onClick={()=>{aggiungiRuolo(inputRuolo,"panchina");setInputRuolo("");}}>Aggiungi panchina</button>
+        <button className="px-3 py-2 bg-blue-500 text-white rounded w-full sm:w-auto" 
+          onClick={()=>{aggiungiRuolo(inputRuolo,"titolari");setInputRuolo("");}}>
+          Aggiungi titolare
+        </button>
+        <button className="px-3 py-2 bg-green-500 text-white rounded w-full sm:w-auto" 
+          onClick={()=>{aggiungiRuolo(inputRuolo,"panchina");setInputRuolo("");}}>
+          Aggiungi panchina
+        </button>
       </div>
 
+      {/* --- LISTE TITORI E PANCHINA --- */}
       <div>
         <p className="font-semibold mt-2">Titolari ({titolari.length})</p>
         <div className="linea flex flex-wrap" onDragOver={(e)=>e.preventDefault()} onDrop={()=>handleDrop("titolari")}>
@@ -249,6 +256,7 @@ function SquadraBuilder() {
         </p>
       </div>
 
+      {/* --- MODULI --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
         {risultati.map(r=>(
           <div key={r.nome} className="p-3 rounded shadow" style={{backgroundColor: coloriModulo(r.percentMatch), border: bordoModulo(r.score)}}>
@@ -261,7 +269,7 @@ function SquadraBuilder() {
               </div>
               {hoverModulo === r.nome && (
                 <div className="tooltip">
-                  {r.mancantiTitolari.length>0 ? "Mancano titolari: " + r.mancantiTitolari.join(", ") : "Titolari completi ✅"}
+                  {r.mancantiTitolari.length>0 ? "Mancano: " + r.mancantiTitolari.join(", ") : "Completo ✅"}
                 </div>
               )}
             </div>
@@ -272,9 +280,8 @@ function SquadraBuilder() {
                 return slot.map((ruolo, idx) => {
                   const evidenziato = r.evidenziati[i][idx];
                   const manca = !r.slotsCopertiTitolari[i] && !titolari.includes(ruolo);
-                  const classeMancante = r.percentMatch >= 65 && r.percentMatch < 100 ? "ruolo-mancante" : "ruolo-mancante-static";
                   return (
-                    <span key={i+"-"+idx} className={evidenziato ? "ruolo-cardine" : (manca ? classeMancante : "")}>
+                    <span key={i+"-"+idx} className={evidenziato ? "ruolo-cardine" : ""}>
                       {ruolo}{idx < slot.length - 1 ? "/" : ""}
                     </span>
                   );
@@ -282,9 +289,9 @@ function SquadraBuilder() {
               }).reduce((prev, curr) => [prev, ", ", curr])}
             </p>
 
-            {/* --- RIGA PANCHINA --- */}
+            {/* --- PANCHINA VISUAL --- */}
             <p className="text-sm mt-1">
-              {r.mancantiPanchina.length > 0 ? "Panchina mancante: " + r.mancantiPanchina.map(s=>`{${s}}`).join(", ") : "Panchina completa ✅"}
+              {r.mancantiPanchina.length>0 ? "Panchina: " + r.mancantiPanchina.map(s=>`{${s}}`).join(", ") : "Panchina completa ✅"}
             </p>
           </div>
         ))}
