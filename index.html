@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -164,38 +164,25 @@ function SquadraBuilder() {
     return score;
   };
 
-  // --- Funzione aggiornata: un giocatore copre un solo slot ---
-const evidenziaRuoli = (slots, titolariRaw) => {
-  // Copia dei giocatori disponibili, ciascuno con i ruoli normalizzati
-  let giocatoriDisponibili = titolariRaw.map(r => normalizzaRuolo(r));
-
-  // Array finale degli slot evidenziati
-  return slots.map(slot => {
-    // Array booleano per ciascun ruolo nello slot
-    let evidenziati = slot.map(() => false);
-
-    // Iteriamo i ruoli dello slot seguendo l'ordine
-    for (let s = 0; s < slot.length; s++) {
-      const ruoloSlot = slot[s]; // primo ruolo = strategico/defensivo
-
-      // Cerchiamo un giocatore disponibile che abbia questo ruolo
-      for (let g = 0; g < giocatoriDisponibili.length; g++) {
-        const titolare = giocatoriDisponibili[g];
-        if (titolare.includes(ruoloSlot)) {
-          evidenziati[s] = true;
-          // Rimuoviamo il giocatore: può coprire solo uno slot
-          giocatoriDisponibili.splice(g, 1);
-          break; // Passiamo al prossimo ruolo nello slot
+  const evidenziaRuoli = (slots, titolariRaw) => {
+    let giocatoriDisponibili = titolariRaw.map(r => normalizzaRuolo(r));
+    return slots.map(slot => {
+      let evidenziati = slot.map(() => false);
+      for (let s = 0; s < slot.length; s++) {
+        const ruoloSlot = slot[s];
+        for (let g = 0; g < giocatoriDisponibili.length; g++) {
+          const titolare = giocatoriDisponibili[g];
+          if (titolare.includes(ruoloSlot)) {
+            evidenziati[s] = true;
+            giocatoriDisponibili.splice(g, 1);
+            break;
+          }
         }
+        if (evidenziati[s]) break;
       }
-
-      // Se abbiamo evidenziato il ruolo strategico, non cerchiamo altri ruoli nello slot
-      if (evidenziati[s]) break;
-    }
-
-    return evidenziati;
-  });
-};
+      return evidenziati;
+    });
+  };
 
   const risultati = Object.entries(moduli).map(([nome, slots])=>{
     const slotsCopertiTitolari = calcolaSlotCoperti(slots, titolari);
@@ -229,17 +216,30 @@ const evidenziaRuoli = (slots, titolariRaw) => {
 
   return (
     <div className="p-4 space-y-4">
-      <h1 className="text-xl font-bold">Costruttore Mantra - Signor COMPETENTE</h1>
+      <h1 className="text-xl font-bold text-center">Costruttore Mantra - Signor COMPETENTE</h1>
 
-      <div className="flex gap-2 mt-2">
-        <input type="text" className="border p-2 rounded flex-1"
+      {/* Input + bottoni ottimizzati per mobile */}
+      <div className="flex flex-col items-center gap-2 mt-2 md:flex-row md:items-stretch">
+        <input 
+          type="text" 
+          className="border p-2 rounded w-full md:flex-1"
           placeholder="Ruolo (DC, M, A... o multiruolo tipo E/W)"
           value={inputRuolo}
           onChange={(e)=>setInputRuolo(e.target.value)}
           onKeyDown={(e)=>{if(e.key==="Enter"){aggiungiRuolo(inputRuolo,"titolari");setInputRuolo("");}}}
         />
-        <button className="px-3 py-2 bg-blue-500 text-white rounded" onClick={()=>{aggiungiRuolo(inputRuolo,"titolari");setInputRuolo("");}}>Aggiungi titolare</button>
-        <button className="px-3 py-2 bg-green-500 text-white rounded" onClick={()=>{aggiungiRuolo(inputRuolo,"panchina");setInputRuolo("");}}>Aggiungi panchina</button>
+        <button 
+          className="px-3 py-2 bg-blue-500 text-white rounded w-full md:w-auto"
+          onClick={()=>{aggiungiRuolo(inputRuolo,"titolari");setInputRuolo("");}}
+        >
+          Aggiungi titolare
+        </button>
+        <button 
+          className="px-3 py-2 bg-green-500 text-white rounded w-full md:w-auto"
+          onClick={()=>{aggiungiRuolo(inputRuolo,"panchina");setInputRuolo("");}}
+        >
+          Aggiungi panchina
+        </button>
       </div>
 
       <div>
@@ -263,7 +263,7 @@ const evidenziaRuoli = (slots, titolariRaw) => {
           ))}
         </div>
 
-        <p className="font-semibold mt-2">
+        <p className="font-semibold mt-2 text-center">
           Totale giocatori: {titolari.length + panchina.length}
         </p>
       </div>
@@ -311,5 +311,3 @@ ReactDOM.createRoot(document.getElementById("root")).render(<SquadraBuilder />);
 </script>
 </body>
 </html>
-
-
