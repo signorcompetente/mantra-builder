@@ -1,4 +1,4 @@
-<!DOCTYPE html><!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html><!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -133,21 +133,23 @@ function SquadraBuilder() {
     }
   };
 
-  const calcolaSlotCoperti = (slots, ruoliDisponibiliRaw) => {
-    let slotsCoperti = Array(slots.length).fill(false);
-    let giocatori = ruoliDisponibiliRaw.map(r => normalizzaRuolo(r));
-
-    slots.forEach((slot, i) => {
-      for (let g = 0; g < giocatori.length; g++) {
-        let possibili = giocatori[g];
-        if (possibili.some(r => slot.includes(r))) {
-          slotsCoperti[i] = true;
-          giocatori.splice(g,1);
-          break;
+  // --- evidenzia considerando anche il numero richiesto ---
+  const evidenziaRuoli = (slots, titolariRaw) => {
+    let giocatoriDisponibili = [...titolariRaw]; // copio titolari
+    return slots.map(slot => {
+      let evidenziati = slot.map(() => false);
+      for (let s = 0; s < slot.length; s++) {
+        const ruoloSlot = slot[s];
+        const idx = giocatoriDisponibili.findIndex(r => normalizzaRuolo(r).includes(ruoloSlot));
+        if (idx !== -1) {
+          evidenziati[s] = true;
+          giocatoriDisponibili.splice(idx,1); // rimuovo il giocatore usato
+        } else {
+          evidenziati[s] = false; // illumina come mancante se non ci sono abbastanza giocatori
         }
       }
+      return evidenziati;
     });
-    return slotsCoperti;
   };
 
   const calcolaScoreModulo = (slots, titolari) => {
@@ -164,30 +166,10 @@ function SquadraBuilder() {
     return score;
   };
 
-  const evidenziaRuoli = (slots, titolariRaw) => {
-    let giocatoriDisponibili = titolariRaw.map(r => normalizzaRuolo(r));
-    return slots.map(slot => {
-      let evidenziati = slot.map(() => false);
-      for (let s = 0; s < slot.length; s++) {
-        const ruoloSlot = slot[s];
-        for (let g = 0; g < giocatoriDisponibili.length; g++) {
-          const titolare = giocatoriDisponibili[g];
-          if (titolare.includes(ruoloSlot)) {
-            evidenziati[s] = true;
-            giocatoriDisponibili.splice(g, 1);
-            break;
-          }
-        }
-        if (evidenziati[s]) break;
-      }
-      return evidenziati;
-    });
-  };
-
   const risultati = Object.entries(moduli).map(([nome, slots])=>{
-    const slotsCopertiTitolari = calcolaSlotCoperti(slots, titolari);
-    const mancantiTitolari = slots.map((s,i)=>!slotsCopertiTitolari[i] ? (s.length>1 ? `{${s.join(" / ")}}` : s[0]) : null).filter(Boolean);
     const evidenziati = evidenziaRuoli(slots, titolari);
+    const slotsCopertiTitolari = slots.map((slot,i)=>evidenziati[i].some(x=>x));
+    const mancantiTitolari = slots.map((s,i)=>!slotsCopertiTitolari[i] ? (s.length>1 ? `{${s.join(" / ")}}` : s[0]) : null).filter(Boolean);
     const percentMatch = Math.round((slotsCopertiTitolari.filter(c=>c).length/slots.length)*100);
     const score = calcolaScoreModulo(slots, titolari);
     return {nome, slots, slotsCopertiTitolari, mancantiTitolari, evidenziati, percentMatch, score};
@@ -218,7 +200,7 @@ function SquadraBuilder() {
     <div className="p-4 space-y-4">
       <h1 className="text-xl font-bold text-center">Costruttore Mantra - Signor COMPETENTE</h1>
 
-      {/* Input + bottoni ottimizzati per mobile */}
+      {/* Input + bottoni responsive */}
       <div className="flex flex-col items-center gap-2 mt-2 md:flex-row md:items-stretch">
         <input 
           type="text" 
@@ -263,7 +245,7 @@ function SquadraBuilder() {
           ))}
         </div>
 
-        <p className="font-semibold mt-2 text-center">
+        <p className="font-semibold mt-2">
           Totale giocatori: {titolari.length + panchina.length}
         </p>
       </div>
@@ -290,7 +272,7 @@ function SquadraBuilder() {
               {r.slots.map((slot, i) => {
                 return slot.map((ruolo, idx) => {
                   const evidenziato = r.evidenziati[i][idx];
-                  const manca = !r.slotsCopertiTitolari[i] && !titolari.includes(ruolo);
+                  const manca = !r.slotsCopertiTitolari[i];
                   const classeMancante = r.percentMatch >= 65 && r.percentMatch < 100 ? "ruolo-mancante" : "ruolo-mancante-static";
                   return (
                     <span key={i+"-"+idx} className={evidenziato ? "ruolo-cardine" : (manca ? classeMancante : "")}>
