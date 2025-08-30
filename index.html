@@ -1,4 +1,4 @@
-<!DOCTYPE html><!DOCTYPE html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -14,20 +14,11 @@
   .remove-btn { margin-left:0.25rem; color:#fff; font-weight:bold; cursor:pointer;}
   .slot-coperto { font-weight:bold; color:#1e3a8a; }
   .ruolo-cardine { font-weight: 900; color: #1f2937; }
-  @keyframes lampeggio {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
   .ruolo-mancante {
-    text-decoration: underline;
-    text-decoration-color: red;
     font-weight: bold;
     color: #b91c1c;
-    animation: lampeggio 1s infinite;
   }
   .ruolo-mancante-static {
-    text-decoration: underline;
-    text-decoration-color: red;
     font-weight: bold;
     color: #b91c1c;
   }
@@ -133,23 +124,21 @@ function SquadraBuilder() {
     }
   };
 
-  // --- evidenzia considerando anche il numero richiesto ---
-  const evidenziaRuoli = (slots, titolariRaw) => {
-    let giocatoriDisponibili = [...titolariRaw]; // copio titolari
-    return slots.map(slot => {
-      let evidenziati = slot.map(() => false);
-      for (let s = 0; s < slot.length; s++) {
-        const ruoloSlot = slot[s];
-        const idx = giocatoriDisponibili.findIndex(r => normalizzaRuolo(r).includes(ruoloSlot));
-        if (idx !== -1) {
-          evidenziati[s] = true;
-          giocatoriDisponibili.splice(idx,1); // rimuovo il giocatore usato
-        } else {
-          evidenziati[s] = false; // illumina come mancante se non ci sono abbastanza giocatori
+  const calcolaSlotCoperti = (slots, ruoliDisponibiliRaw) => {
+    let slotsCoperti = Array(slots.length).fill(false);
+    let giocatori = ruoliDisponibiliRaw.map(r => normalizzaRuolo(r));
+
+    slots.forEach((slot, i) => {
+      for (let g = 0; g < giocatori.length; g++) {
+        let possibili = giocatori[g];
+        if (possibili.some(r => slot.includes(r))) {
+          slotsCoperti[i] = true;
+          giocatori.splice(g,1);
+          break;
         }
       }
-      return evidenziati;
     });
+    return slotsCoperti;
   };
 
   const calcolaScoreModulo = (slots, titolari) => {
@@ -166,13 +155,36 @@ function SquadraBuilder() {
     return score;
   };
 
+  const evidenziaRuoli = (slots, titolariRaw) => {
+    let giocatoriDisponibili = titolariRaw.map(r => normalizzaRuolo(r));
+    return slots.map(slot => {
+      let evidenziati = slot.map(() => false);
+      for (let s = 0; s < slot.length; s++) {
+        const ruoloSlot = slot[s];
+        for (let g = 0; g < giocatoriDisponibili.length; g++) {
+          const titolare = giocatoriDisponibili[g];
+          if (titolare.includes(ruoloSlot)) {
+            evidenziati[s] = true;
+            giocatoriDisponibili.splice(g, 1);
+            break;
+          }
+        }
+        if (evidenziati[s]) break;
+      }
+      return evidenziati;
+    });
+  };
+
   const risultati = Object.entries(moduli).map(([nome, slots])=>{
-    const evidenziati = evidenziaRuoli(slots, titolari);
-    const slotsCopertiTitolari = slots.map((slot,i)=>evidenziati[i].some(x=>x));
+    const slotsCopertiTitolari = calcolaSlotCoperti(slots, titolari);
+    const slotsCopertiPanchina = calcolaSlotCoperti(slots, panchina);
     const mancantiTitolari = slots.map((s,i)=>!slotsCopertiTitolari[i] ? (s.length>1 ? `{${s.join(" / ")}}` : s[0]) : null).filter(Boolean);
+    const mancantiPanchina = slots.map((s,i)=>!slotsCopertiPanchina[i] ? (s.length>1 ? s.map(r=>r).join("/") : s[0]) : null).filter(Boolean);
+    const evidenziati = evidenziaRuoli(slots, titolari);
+    const evidenziatiPanchina = evidenziaRuoli(slots, panchina);
     const percentMatch = Math.round((slotsCopertiTitolari.filter(c=>c).length/slots.length)*100);
     const score = calcolaScoreModulo(slots, titolari);
-    return {nome, slots, slotsCopertiTitolari, mancantiTitolari, evidenziati, percentMatch, score};
+    return {nome, slots, slotsCopertiTitolari, slotsCopertiPanchina, mancantiTitolari, mancantiPanchina, evidenziati, evidenziatiPanchina, percentMatch, score};
   }).sort((a,b)=>b.percentMatch - a.percentMatch);
 
   const coloriModulo = (percent) => {
@@ -198,30 +210,17 @@ function SquadraBuilder() {
 
   return (
     <div className="p-4 space-y-4">
-      <h1 className="text-xl font-bold text-center">Costruttore Mantra - Signor COMPETENTE</h1>
+      <h1 className="text-xl font-bold">Costruttore Moduli Fantacalcio Avanzato</h1>
 
-      {/* Input + bottoni responsive */}
-      <div className="flex flex-col items-center gap-2 mt-2 md:flex-row md:items-stretch">
-        <input 
-          type="text" 
-          className="border p-2 rounded w-full md:flex-1"
+      <div className="flex gap-2 mt-2">
+        <input type="text" className="border p-2 rounded flex-1"
           placeholder="Ruolo (DC, M, A... o multiruolo tipo E/W)"
           value={inputRuolo}
           onChange={(e)=>setInputRuolo(e.target.value)}
           onKeyDown={(e)=>{if(e.key==="Enter"){aggiungiRuolo(inputRuolo,"titolari");setInputRuolo("");}}}
         />
-        <button 
-          className="px-3 py-2 bg-blue-500 text-white rounded w-full md:w-auto"
-          onClick={()=>{aggiungiRuolo(inputRuolo,"titolari");setInputRuolo("");}}
-        >
-          Aggiungi titolare
-        </button>
-        <button 
-          className="px-3 py-2 bg-green-500 text-white rounded w-full md:w-auto"
-          onClick={()=>{aggiungiRuolo(inputRuolo,"panchina");setInputRuolo("");}}
-        >
-          Aggiungi panchina
-        </button>
+        <button className="px-3 py-2 bg-blue-500 text-white rounded" onClick={()=>{aggiungiRuolo(inputRuolo,"titolari");setInputRuolo("");}}>Aggiungi titolare</button>
+        <button className="px-3 py-2 bg-green-500 text-white rounded" onClick={()=>{aggiungiRuolo(inputRuolo,"panchina");setInputRuolo("");}}>Aggiungi panchina</button>
       </div>
 
       <div>
@@ -262,7 +261,7 @@ function SquadraBuilder() {
               </div>
               {hoverModulo === r.nome && (
                 <div className="tooltip">
-                  {r.mancantiTitolari.length>0 ? "Mancano: " + r.mancantiTitolari.join(", ") : "Completo ✅"}
+                  {r.mancantiTitolari.length>0 ? "Mancano titolari: " + r.mancantiTitolari.join(", ") : "Titolari completi ✅"}
                 </div>
               )}
             </div>
@@ -272,7 +271,7 @@ function SquadraBuilder() {
               {r.slots.map((slot, i) => {
                 return slot.map((ruolo, idx) => {
                   const evidenziato = r.evidenziati[i][idx];
-                  const manca = !r.slotsCopertiTitolari[i];
+                  const manca = !r.slotsCopertiTitolari[i] && !titolari.includes(ruolo);
                   const classeMancante = r.percentMatch >= 65 && r.percentMatch < 100 ? "ruolo-mancante" : "ruolo-mancante-static";
                   return (
                     <span key={i+"-"+idx} className={evidenziato ? "ruolo-cardine" : (manca ? classeMancante : "")}>
@@ -282,6 +281,11 @@ function SquadraBuilder() {
                 });
               }).reduce((prev, curr) => [prev, ", ", curr])}
             </p>
+
+            {/* --- RIGA PANCHINA --- */}
+            <p className="text-sm mt-1">
+              {r.mancantiPanchina.length > 0 ? "Panchina mancante: " + r.mancantiPanchina.map(s=>`{${s}}`).join(", ") : "Panchina completa ✅"}
+            </p>
           </div>
         ))}
       </div>
@@ -290,6 +294,7 @@ function SquadraBuilder() {
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<SquadraBuilder />);
+
 </script>
 </body>
 </html>
